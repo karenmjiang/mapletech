@@ -1,0 +1,162 @@
+---
+title: "Mapletech"
+author: "Karen Jiang"
+date: "4/6/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(tidyverse)
+library(readxl)
+library(janitor)
+library(ggthemes)
+library(ggalt)
+
+results <- read_excel(path = "data/Game-Results.xlsx") %>%
+  clean_names() %>%
+  mutate(
+    target_price = as.integer(target_price),
+    at_what_price_per_unit = as.numeric(at_what_price_per_unit),
+    what_was_the_first_offer = as.numeric(what_was_the_first_offer),
+    what_was_the_counteroffer = as.numeric(what_was_the_counteroffer)
+  ) %>%
+  mutate(did_you_reach_an_agreement = replace(did_you_reach_an_agreement,
+                                              did_you_reach_an_agreement == "-", 
+                                              "No"),
+         role = as.factor(role),
+         diff_first_counter = abs(what_was_the_first_offer - what_was_the_counteroffer),
+         diff_first_final = abs(what_was_the_first_offer - at_what_price_per_unit))
+
+
+zopa = c(10, 35)
+
+results
+```
+
+```{r}
+results %>% 
+  ggplot(aes(x = did_you_reach_an_agreement)) + geom_bar(aes(fill = did_you_reach_an_agreement)) +
+  labs(
+    x = "Did You Reach an Agreement?",
+    y = "Count"
+  ) + 
+  theme_classic() +
+  theme(
+    legend.position = "None"
+  )
+
+```
+
+```{r}
+results %>%
+  filter(!is.na(target_price),
+         group != 10) %>%
+  ggplot(aes(x = target_price)) +
+  annotate("rect", xmin = 10, xmax = 35, ymin = 0, ymax = Inf, fill = "gray", alpha = 0.2) +
+  annotate("text", x = 22.5 , y = 0.05, label = "ZOPA") + 
+  geom_vline(xintercept = zopa, linetype = "dotted") +
+  geom_density(aes(fill = role), alpha = 0.5) +
+  theme_classic() +
+  labs(
+    title = "What was the Target Price for Mapletech vs. Yazawa?",
+    x = "Target Price",
+    y = "Density", 
+    fill = "Role"
+  )
+  
+```
+
+```{r}
+results %>%
+  filter(did_you_reach_an_agreement == "Yes") %>%
+  ggplot(aes(x = at_what_price_per_unit)) +
+  annotate("rect", xmin = 10, xmax = 35, ymin = 0, ymax = Inf, fill = "gray", alpha = 0.2) +
+  annotate("text", x = 22.5 , y = 0.06, label = "ZOPA") +
+  geom_vline(xintercept = zopa, linetype = "dotted") +
+  geom_density(aes(fill = who_made_the_first_offer), alpha = 0.4) +
+  theme_classic() +
+  labs(
+    title = "What was the Final Price Agreed Upon by both parties?",
+    x = "Final Price per Unit",
+    y = "Density",
+    fill = "First Offer made by: "
+  ) +
+  theme(
+    legend.position = "top"
+  )
+```
+
+```{r}
+results %>%
+  filter(role == "Yazawa",
+         !is.na(target_price)) %>%
+ ggplot(aes(x = what_was_the_first_offer, 
+            xend = what_was_the_counteroffer, 
+            y = reorder(group, what_was_the_first_offer))
+        ) + 
+  annotate("rect", xmin = 10, xmax = 35, ymin = -Inf, ymax = Inf, fill = "gray", alpha = 0.2) +
+  geom_vline(xintercept = zopa, linetype = "dotted") +
+  facet_grid(
+    cols = vars(who_made_the_first_offer) 
+  ) + 
+  geom_dumbbell(
+    colour_xend = "red",
+    size_x = 2,
+    size_xend = 1
+  ) + 
+  geom_point(
+    aes(x = at_what_price_per_unit), shape = 4, size = 2, color = "blue"
+  ) + 
+  theme_classic() +
+  labs(
+    title = "How did Groups Respond to the First Offer with a Counter Offer?",
+    subtitle = "based on who made the First Offer",
+    x = "First Offer to Counter-Offer",
+    y = "Group"
+  )
+  
+  
+``` 
+
+```{r}
+results %>%
+  filter(role == "Yazawa",
+         !is.na(target_price)) %>%
+ ggplot(aes(x = what_was_the_first_offer, 
+            xend = at_what_price_per_unit, 
+            y = reorder(group, what_was_the_first_offer))
+        ) + 
+  annotate("rect", xmin = 10, xmax = 35, ymin = -Inf, ymax = Inf, fill = "gray", alpha = 0.5) +
+  geom_vline(xintercept = zopa, linetype = "dotted") +
+  facet_grid(
+    cols = vars(who_made_the_first_offer) 
+  ) + 
+  geom_dumbbell(
+    colour_xend = "forestgreen",
+    size_x = 2,
+    size_xend = 1
+  ) + 
+  theme_classic() +
+  labs(
+    title = "What was the Final Amount based on the First Offer anchor?",
+    subtitle = "based on who made the First Offer",
+    x = "First Offer to Final Amount (green) ",
+    y = "Group"
+  )
+```
+
+```{r}
+results %>%
+  filter(role == "Yazawa",
+         !is.na(target_price)) %>%
+  ggplot(aes(x = what_was_the_first_offer, y = at_what_price_per_unit)) +
+  geom_point(aes(color = who_made_the_first_offer)) + 
+  annotate("rect", xmin = 10, xmax = 35, ymin = 0, ymax = Inf, fill = "gray", alpha = 0.5) +
+  annotate("text", x = 22.5 , y = 0.06, label = "ZOPA") +
+  geom_vline(xintercept = zopa, linetype = "dotted") +
+  geom_density(aes(fill = who_made_the_first_offer), alpha = 0.4) +
+  theme_classic()
+```
+
