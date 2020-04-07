@@ -1,8 +1,11 @@
 ---
-title: "Mapletech"
+title: "Mapletech Data Exploration"
 author: "Karen Jiang"
 date: "4/6/2020"
-output: html_document
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -31,23 +34,61 @@ results <- read_excel(path = "data/Game-Results.xlsx") %>%
 
 
 zopa = c(10, 35)
-
-results
 ```
 
-```{r}
+## Strike a Deal!
+
+Only one group in our class did not reach an agreement on a final price for this exercise. 
+
+Group 48, are you real data? Regardless, we'll filter you out from the following analysis.
+```{r, fig.width=5, fig.align='center'}
 results %>% 
-  ggplot(aes(x = did_you_reach_an_agreement)) + geom_bar(aes(fill = did_you_reach_an_agreement)) +
+  count(did_you_reach_an_agreement) %>%
+  ggplot(aes(x = "", y = n, fill = did_you_reach_an_agreement)) + 
+  geom_bar(stat = "identity", width = 1, color="white") +
+  coord_polar("y", start = 0) + 
+  theme_void() +
   labs(
-    x = "Did You Reach an Agreement?",
-    y = "Count"
-  ) + 
-  theme_classic() +
-  theme(
-    legend.position = "None"
+    fill = "Did You Reach an Agreement?"
   )
-
 ```
+
+## BATNA and Who Goes First?
+
+The **BATNA** is the *Best Alternative to a Negotiated Agreement*.
+
+Mapletech's BATNA would have been no deal (no gains, no losses).
+Yazawa's BATNA on the other hand would have been to buy the same part from another manufacturer at $35 / unit.
+
+
+Mapletech might have had the upper hand in this negotiation, but they also more frequently made the first offer. 
+
+```{r fig.width = 5, fig.align = "center"}
+results %>% 
+  count(who_made_the_first_offer) %>%
+  filter(who_made_the_first_offer != "-") %>%
+  ggplot(aes(x = "", y = n, fill = who_made_the_first_offer)) + 
+  geom_bar(stat = "identity", width = 1, color="white") +
+  coord_polar("y", start = 0) + 
+  theme_void() +
+  labs(
+    fill = "Who made the First Offer?"
+  )
+```
+
+## Zone of Possible Agreement
+
+Mapletech's reservation point was $10.
+Yazawa's reservation point was $35.
+
+Any amount between that is the **Zone of Possible Agreement**, or **ZOPA**.
+
+
+## Target Price
+
+Target prices were generally anchored around the values provided by the case guidelines. 
+However, there are a handful of folks in Mapletech who were less constrained by anchors, and chose even higher target prices. 
+
 
 ```{r}
 results %>%
@@ -61,12 +102,52 @@ results %>%
   theme_classic() +
   labs(
     title = "What was the Target Price for Mapletech vs. Yazawa?",
-    x = "Target Price",
+    x = "$ / Unit",
     y = "Density", 
     fill = "Role"
   )
   
 ```
+
+How does an internal, unstated target price affect the First Offer?
+
+## First Offer
+
+Yazawa's first offers were near $10 range (Mapletech's reservation point), right at the edge of the ZOPA, while
+Mapletech's first offers were around $40, outside of the ZOPA.
+
+The range of first offers is more extreme than the range of target prices for either group. Since Mapletech is not bounded by an upper limit, we see that they
+
+
+```{r}
+results %>%
+  filter(!is.na(target_price),
+         group != 10) %>%
+  ggplot(aes(x = what_was_the_first_offer)) +
+  annotate("rect", xmin = 10, xmax = 35, ymin = 0, ymax = Inf, fill = "gray", alpha = 0.2) +
+  annotate("text", x = 22.5 , y = 0.065, label = "ZOPA") + 
+  geom_vline(xintercept = zopa, linetype = "dotted") +
+  geom_density(aes(fill = who_made_the_first_offer), alpha = 0.5) +
+  theme_classic() +
+  labs(
+    title = "What was the First Offer made by Mapletech vs. Yazawa?",
+    x = "$ / Unit",
+    y = "Density", 
+    fill = "Role"
+  )
+```
+
+
+
+## Did making the First Offer make a difference?
+
+The results are counter-intuitive. 
+
+We would have expected that if Mapletech made the first offer and set an high anchor, we would expect that a peak in the final price near the higher end of the ZOPA. Instead, we see a relatively uniform distribution between %15 and $30.
+
+When Yazawa made the first offer, there is a bimodal distribution with peaks at $20 and $30, suggesting that Yazawa making the first offer was only effective in lowering the final agreed price for a few cases.
+
+However almost all deals were reached within the ZOPA (as should be the case).
 
 ```{r}
 results %>%
@@ -75,6 +156,7 @@ results %>%
   annotate("rect", xmin = 10, xmax = 35, ymin = 0, ymax = Inf, fill = "gray", alpha = 0.2) +
   annotate("text", x = 22.5 , y = 0.06, label = "ZOPA") +
   geom_vline(xintercept = zopa, linetype = "dotted") +
+  geom_density(alpha = 0, linetype = "dashed") + 
   geom_density(aes(fill = who_made_the_first_offer), alpha = 0.4) +
   theme_classic() +
   labs(
@@ -88,6 +170,27 @@ results %>%
   )
 ```
 
+How might this result be explained by the negotiation process?
+
+## The Negotiation
+
+### First Offer and Counter Offer
+
+First, let's understand what's happening with the visual: 
+
+- **Black Dots** represent the amount of the First Offer.
+- <font color = "darkorange">Orange Dots</font> represent the Counter Offer.
+- The graph is split by who made the First Offer 
+  - Mapletech on the Left
+  - Yazawa on the Right
+
+Generally, when the first offer was an extreme low/high ball, they were met with an aggressive counter. 
+The counter offer range tends to decrease if the first offer was closer to center of the ZOPA.
+
+Group 37 represents a case of a very reasonable First Offer that was accepted immediately. 
+
+<br>
+<br>
 ```{r}
 results %>%
   filter(role == "Yazawa",
@@ -96,67 +199,86 @@ results %>%
             xend = what_was_the_counteroffer, 
             y = reorder(group, what_was_the_first_offer))
         ) + 
-  annotate("rect", xmin = 10, xmax = 35, ymin = -Inf, ymax = Inf, fill = "gray", alpha = 0.2) +
-  geom_vline(xintercept = zopa, linetype = "dotted") +
+  annotate("rect", 
+           xmin = 10, xmax = 35, ymin = -Inf, ymax = Inf, 
+           fill = "gray", 
+           alpha = 0.2) +
+  geom_vline(xintercept = zopa, 
+             linetype = "dotted") +
   facet_grid(
     cols = vars(who_made_the_first_offer) 
   ) + 
   geom_dumbbell(
-    colour_xend = "red",
+    colour_xend = "darkorange",
     size_x = 2,
     size_xend = 1
-  ) + 
-  geom_point(
-    aes(x = at_what_price_per_unit), shape = 4, size = 2, color = "blue"
   ) + 
   theme_classic() +
   labs(
     title = "How did Groups Respond to the First Offer with a Counter Offer?",
     subtitle = "based on who made the First Offer",
-    x = "First Offer to Counter-Offer",
+    x = "$ / Unit",
     y = "Group"
+  ) +
+  theme(
+    axis.ticks = element_blank(),
+    axis.line = element_blank(),
+    axis.text.y.left = element_text(size = 6)
   )
-  
-  
-``` 
+```
+
+
+### Final Amount
+
+Now we can add the Final amount to the graph, which is represented by a <font color = "blue">Blue X</font>.
+
+The final offers tend to split the difference between the First Offer and Counter Offer.
 
 ```{r}
 results %>%
   filter(role == "Yazawa",
          !is.na(target_price)) %>%
  ggplot(aes(x = what_was_the_first_offer, 
-            xend = at_what_price_per_unit, 
+            xend = what_was_the_counteroffer, 
             y = reorder(group, what_was_the_first_offer))
         ) + 
-  annotate("rect", xmin = 10, xmax = 35, ymin = -Inf, ymax = Inf, fill = "gray", alpha = 0.5) +
-  geom_vline(xintercept = zopa, linetype = "dotted") +
+  annotate("rect", 
+           xmin = 10, xmax = 35, ymin = -Inf, ymax = Inf, 
+           fill = "gray", 
+           alpha = 0.2) +
+  geom_vline(xintercept = zopa, 
+             linetype = "dotted") +
   facet_grid(
     cols = vars(who_made_the_first_offer) 
   ) + 
   geom_dumbbell(
-    colour_xend = "forestgreen",
+    colour_xend = "darkorange",
     size_x = 2,
     size_xend = 1
   ) + 
+  geom_point(
+    aes(x = at_what_price_per_unit), 
+    shape = 4, 
+    size = 1, 
+    color = "blue"
+  ) + 
   theme_classic() +
   labs(
-    title = "What was the Final Amount based on the First Offer anchor?",
+    title = "How did Groups Respond to the First Offer with a Counter Offer?",
     subtitle = "based on who made the First Offer",
-    x = "First Offer to Final Amount (green) ",
+    x = "$ / Unit",
     y = "Group"
+  ) +
+  theme(
+    axis.ticks = element_blank(),
+    axis.line = element_blank(),
+    axis.text.y.left = element_text(size = 6)
   )
-```
+  
+``` 
+In certain cases, a good counter-offer can be just as effective in setting an achor as the First Offer.
 
-```{r}
-results %>%
-  filter(role == "Yazawa",
-         !is.na(target_price)) %>%
-  ggplot(aes(x = what_was_the_first_offer, y = at_what_price_per_unit)) +
-  geom_point(aes(color = who_made_the_first_offer)) + 
-  annotate("rect", xmin = 10, xmax = 35, ymin = 0, ymax = Inf, fill = "gray", alpha = 0.5) +
-  annotate("text", x = 22.5 , y = 0.06, label = "ZOPA") +
-  geom_vline(xintercept = zopa, linetype = "dotted") +
-  geom_density(aes(fill = who_made_the_first_offer), alpha = 0.4) +
-  theme_classic()
+
+
 ```
 
